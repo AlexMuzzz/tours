@@ -1,0 +1,33 @@
+.DS_Store
+
+# Secrets and local environment
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.*.example
+
+# Editors
+.idea/
+.vscode/
+.zed/
+
+# Node.js
+**/node_modules/
+**/dist/
+**/.vite/
+**/coverage/
+
+# PHP / Laravel
+apps/backend/vendor/
+apps/backend/.phpunit.result.cache
+apps/backend/bootstrap/cache/*.php
+apps/backend/database/database.sqlite
+apps/backend/public/storage
+apps/backend/storage/framework/cache/data/*
+!apps/backend/storage/framework/cache/data/.gitignore
+apps/backend/storage/framework/sessions/*
+!apps/backend/storage/framework/sessions/.gitignore
+apps/backend/storage/framework/views/*
+!apps/backend/storage/framework/views/.gitignore
+apps/backend/storage/logs/*
+!apps/backend/storage/logs/.gitignore

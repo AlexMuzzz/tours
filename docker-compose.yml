@@ -1,0 +1,57 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: tour-catalog-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: tour_catalog
+      POSTGRES_USER: tour_user
+      POSTGRES_PASSWORD: tour_password
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d
+
+  embedding-service:
+    platform: linux/amd64
+    build:
+      context: ./apps/embedding-service
+      dockerfile: Dockerfile
+    container_name: tour-catalog-embedding-service
+    restart: unless-stopped
+    environment:
+      EMBEDDING_MODEL_NAME: sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
+    ports:
+      - "8001:8001"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health', timeout=5).read()"]
+      interval: 15s
+      timeout: 10s
+      retries: 12
+
+  backend:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile
+    container_name: tour-catalog-backend
+    working_dir: /var/www/html
+    depends_on:
+      postgres:
+        condition: service_healthy
+      embedding-service:
+        condition: service_healthy
+    env_file:
+      - ./apps/backend/.env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./apps/backend:/var/www/html
+
+volumes:
+  postgres_data:

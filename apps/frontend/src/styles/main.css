@@ -1,0 +1,118 @@
+@import "tailwindcss";
+@import "tailwindcss-primeui";
+@import "primeicons/primeicons.css";
+
+:root {
+  color-scheme: light;
+  --travel-ink: #17372f;
+  --travel-muted: #5f746d;
+  --travel-sand: #f6f0e3;
+  --travel-foam: #edf7f4;
+  --travel-card: rgba(255, 255, 255, 0.88);
+  --travel-line: rgba(23, 55, 47, 0.12);
+  --travel-sun: #e5a544;
+  --travel-ocean: #2a7b74;
+  --travel-forest: #2e644f;
+  --travel-shadow: 0 24px 80px rgba(36, 62, 52, 0.12);
+  --surface-ground: var(--travel-sand);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background:
+    radial-gradient(circle at top left, rgba(229, 165, 68, 0.16), transparent 35%),
+    radial-gradient(circle at top right, rgba(42, 123, 116, 0.16), transparent 26%),
+    linear-gradient(180deg, #fbf7ef 0%, #eef8f4 100%);
+  color: var(--travel-ink);
+  font-family: "Avenir Next", "Segoe UI", sans-serif;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: "Iowan Old Style", "Palatino Linotype", serif;
+  letter-spacing: -0.02em;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+#app {
+  min-height: 100vh;
+}
+
+.page-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.glass-panel {
+  background: var(--travel-card);
+  backdrop-filter: blur(18px);
+  border: 1px solid var(--travel-line);
+  box-shadow: var(--travel-shadow);
+}
+
+.travel-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 999px;
+  padding: 0.85rem 1.3rem;
+  font-weight: 600;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.travel-link:hover {
+  transform: translateY(-1px);
+}
+
+.travel-link-primary {
+  background: linear-gradient(135deg, var(--travel-ocean), var(--travel-forest));
+  color: white;
+  box-shadow: 0 18px 38px rgba(42, 123, 116, 0.22);
+}
+
+.travel-link-secondary {
+  background: rgba(255, 255, 255, 0.65);
+  border: 1px solid rgba(23, 55, 47, 0.12);
+  color: var(--travel-ink);
+}
+
+.travel-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.travel-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  background: var(--travel-sun);
+  box-shadow: 0 0 0 6px rgba(229, 165, 68, 0.16);
+}
+
+.content-wrapper {
+  width: min(1180px, calc(100% - 2rem));
+  margin: 0 auto;
+}
+
+.empty-illustration {
+  background:
+    radial-gradient(circle at top, rgba(42, 123, 116, 0.12), transparent 42%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(236, 247, 243, 0.88));
+}
