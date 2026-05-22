@@ -1,13 +1,36 @@
 # Tour Catalog AI
 
-Monorepo for the Tour Catalog AI MVP.
+Полнофункциональный каталог туров с AI-функциями в формате монорепозитория. Проект включает публичный каталог, админ-панель, семантический поиск, отдельный embedding-service и набор автоматических проверок для backend и frontend.
 
-## Structure
+## Возможности
+
+- Публичный каталог туров с фильтрами, сортировкой и пагинацией
+- Детальные страницы туров с описанием, датами, ценами, галереей и маршрутными точками
+- Админ-панель для управления турами, изображениями, датами и маршрутами
+- Семантический поиск на основе Hugging Face embeddings
+- Отдельный FastAPI embedding-service
+- Аутентификация админки через Laravel Sanctum
+- Swagger / OpenAPI документация
+- Docker-окружение для локального запуска
+- Автоматические тесты для backend и frontend
+
+## Что внутри
+
+- Laravel 11 API в `apps/backend`
+- Vue 3 + Vike frontend в `apps/frontend`
+- FastAPI embedding-service в `apps/embedding-service`
+- PostgreSQL-ориентированная модель данных
+- Демо-данные: 17 туров с полными русскоязычными описаниями и 3 admin-аккаунта
+- Feature-тесты для backend и smoke / component tests для frontend
+
+## Структура
 
 ```text
-tour-catalog-ai/
+tours/
   apps/
     backend/
+    frontend/
+    embedding-service/
   docs/
   docker/
   docker-compose.yml
@@ -15,22 +38,11 @@ tour-catalog-ai/
   README.md
 ```
 
-## Included in this MVP
-
-- Laravel 11 backend API in `apps/backend`
-- Vue 3 + Vike frontend in `apps/frontend`
-- PostgreSQL-oriented data model
-- Public tours catalog API
-- Admin API with Sanctum bearer tokens
-- Seed data for 17 demo tours with full Russian descriptions and three admin accounts
-- Backend feature tests with PostgreSQL test database defaults
-- Frontend smoke tests with Vitest + Vue Test Utils
-- Semantic search with a dedicated FastAPI embedding service and a multilingual Hugging Face model
-
-## Quick start
+## Быстрый старт
 
 ```bash
-cd /Users/alexey_muzgin/Projects/tour-catalog-ai
+git clone git@github.com:AlexMuzzz/tours.git
+cd tours
 cp apps/backend/.env.example apps/backend/.env
 cp apps/backend/.env.testing.example apps/backend/.env.testing
 make backend-install
@@ -39,116 +51,122 @@ make backend-fresh
 make backend-serve
 ```
 
-## Quality Checks
+## Проверка качества
 
 ```bash
-cd /Users/alexey_muzgin/Projects/tour-catalog-ai
 make backend-test
 make frontend-test
 make frontend-build
 make test
 ```
 
-What `make test` runs:
+`make test` запускает:
 
 1. backend PHPUnit feature tests
 2. frontend Vitest smoke tests
 3. frontend production build
 
-## CI
+## Семантический поиск
 
-GitHub Actions workflow lives in:
+Семантический поиск позволяет искать туры не только по точным словам, но и по смыслу. Например, запрос `отдых у моря` может найти туры про пляжный или прибрежный отдых, даже если формулировки в описании отличаются.
 
-- `.github/workflows/ci.yml`
+- Гибридный поиск работает в `GET /api/tours?search=...`: текстовые совпадения и семантическая релевантность объединяются в единую выдачу
+- Отдельный endpoint для проверки семантического поиска: `GET /api/tours/search/semantic?query=...`
+- Backend отправляет запрос в `embedding-service`, получает embedding размерности `384` и сравнивает его с `tour_embeddings.embedding` по cosine similarity
+- Локальный threshold по умолчанию: `0.4`
+- Для запросов вроде `отдых у моря` backend добавляет лёгкие intent guardrails, чтобы зимние и приключенческие туры не обгоняли пляжные направления
+- Если embedding-service временно недоступен, каталог автоматически откатывается к обычному lexical search вместо полного падения поиска
 
-It runs automatically on every `push` and `pull_request` and contains two lightweight jobs:
-
-1. `backend`
-   - installs Composer dependencies in `apps/backend`
-   - copies `.env.example` and `.env.testing.example`
-   - generates Laravel app keys
-   - starts PostgreSQL as a GitHub Actions service
-   - runs `php artisan test`
-2. `frontend`
-   - installs npm dependencies in `apps/frontend`
-   - runs `npm run build`
-
-Local equivalents:
+Пересборка embeddings после изменения seed-данных или контента:
 
 ```bash
-cd /Users/alexey_muzgin/Projects/tour-catalog-ai
+docker compose exec -T backend php artisan embeddings:rebuild --chunk=25
+```
+
+## AI Workflow
+
+Проект собирался в агентском workflow, с разбиением на независимые и проверяемые этапы:
+
+1. Backend API и модель данных
+2. Аутентификация админки и CRUD-операции
+3. Публичный frontend и интерфейсы админки
+4. Семантический поиск и embedding-service
+5. Тесты, CI, документация и smoke-проверки
+
+AI-агенты использовались как ассистенты разработки для реализации, рефакторинга, генерации тестов и технического аудита. Каждый крупный этап проверялся через автоматические тесты, сборки, ручные API-проверки и локальные smoke-сценарии.
+
+## CI
+
+GitHub Actions workflow находится в `.github/workflows/ci.yml`.
+
+Он запускается на каждый `push` и `pull_request` и состоит из двух лёгких job:
+
+1. `backend`
+   - устанавливает Composer-зависимости в `apps/backend`
+   - копирует `.env.example` и `.env.testing.example`
+   - генерирует Laravel app keys
+   - поднимает PostgreSQL как GitHub Actions service
+   - запускает `php artisan test`
+2. `frontend`
+   - устанавливает npm-зависимости в `apps/frontend`
+   - запускает `npm run build`
+
+Локальные эквиваленты:
+
+```bash
 make backend-test
 make frontend-build
 ```
 
-## Docker notes
+## Docker и инфраструктура
 
-- `docker-compose.yml` includes `postgres`, `embedding-service`, and `backend` services.
-- PostgreSQL init scripts create `tour_catalog` and `tour_catalog_test`.
-- Local Docker uses `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` via `apps/embedding-service`.
-- The embedding service runs CPU-only on `linux/amd64`; no GPU dependencies are required.
-- PHPUnit tests keep `EMBEDDING_SERVICE_URL` empty and use the local deterministic fallback so test runs do not depend on Python.
+- `docker-compose.yml` включает `postgres`, `embedding-service` и `backend`
+- PostgreSQL init scripts создают `tour_catalog` и `tour_catalog_test`
+- Локальный Docker использует модель `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` через `apps/embedding-service`
+- Embedding-service работает на CPU и не требует GPU-зависимостей
+- PHPUnit-тесты оставляют `EMBEDDING_SERVICE_URL` пустым и используют локальный deterministic fallback, чтобы тесты не зависели от Python-сервиса
 
-## Semantic Search
+## Документация
 
-- Public catalog search is now hybrid on `GET /api/tours?search=...`: direct text matches and semantic relevance are combined in one ranked response.
-- Public endpoint: `GET /api/tours/search/semantic?query=...`
-- Backend sends the query to `embedding-service`, receives a `384`-dimensional embedding, and compares it with `tour_embeddings.embedding` through cosine similarity.
-- Local default threshold is `0.4`.
-- For strong “seaside relaxation” queries such as `отдых у моря`, backend adds lightweight intent guardrails on top of embedding similarity so winter/adventure/coastal-but-not-vacation tours do not outrank beach vacations.
-- If the embedding service is temporarily unavailable, catalog search gracefully falls back to lexical matching instead of failing the whole `/api/tours` request.
-- Rebuild all stored embeddings after seed or content changes:
+- Настройка backend и детали API: [apps/backend/README.md](./apps/backend/README.md)
+- Настройка frontend и детали тестирования: [apps/frontend/README.md](./apps/frontend/README.md)
 
-```bash
-cd /Users/alexey_muzgin/Projects/tour-catalog-ai
-docker compose exec -T backend php artisan embeddings:rebuild --chunk=25
-```
+## API-документация
 
-## Documentation
-
-- Backend setup and API details: [apps/backend/README.md](./apps/backend/README.md)
-- Frontend setup and testing details: [apps/frontend/README.md](./apps/frontend/README.md)
-
-## API Documentation
-
-With the backend running locally, open:
+При локально запущенном backend:
 
 - UI: [http://localhost:8000/docs/api](http://localhost:8000/docs/api)
 - OpenAPI JSON: [http://localhost:8000/docs/api.json](http://localhost:8000/docs/api.json)
 
-To try admin endpoints in the docs:
+Чтобы протестировать админские методы в документации:
 
-1. Login via `POST /api/admin/login`
-2. Copy the returned Sanctum token
-3. Authorize requests with `Authorization: Bearer <token>`
+1. Выполните `POST /api/admin/login`
+2. Скопируйте возвращённый Sanctum token
+3. Передавайте его как `Authorization: Bearer <token>`
 
-## Next MVP steps
+## Покрытие тестами
 
-- Add pgvector or another database-level vector similarity strategy
-- Replace deterministic description generation with a real LLM provider
-- Add richer frontend/admin UX polish
-- Expand visual admin panel capabilities
+Backend покрывает:
 
-## Test Coverage
+- auth flow админки
+- CRUD для туров
+- вложенные admin resources для изображений, дат и маршрутных точек
+- сценарии списка, детальной страницы, фильтров и поиска в публичном каталоге
+- ранжирование hybrid search и проверку semantic search
 
-Backend coverage includes:
+Frontend покрывает:
 
-- admin auth flow
-- admin CRUD for tours
-- nested admin resources for images, dates, and route points
-- public catalog list/detail/filter/search scenarios
-- hybrid catalog search ranking and semantic search validation/service invocation
+- smoke-рендер главной страницы
+- отображение карточек туров
+- состояния загрузки, пустого результата и ошибок в каталоге
+- admin login flow с mocked auth service
+- сохранение admin session в auth store
+- redirect-логику admin guard
+- placeholder-логику карт и пустых маршрутов
 
-Frontend coverage includes:
+## Следующие шаги
 
-- home page render smoke
-- tour card display
-- catalog loading, empty, and error states
-- admin login flow with mocked auth service
-- auth store session persistence behavior
-- admin guard redirect behavior
-- Yandex Maps placeholders and empty route handling
-
-## TODO
-
-- Add Playwright E2E smoke tests once browser automation infrastructure is standardized for the project
+- Добавить `pgvector` или другую database-level стратегию векторного поиска
+- Заменить deterministic description generation на реального LLM-провайдера
+- Расширить UX публичного каталога и админки
+- Добавить Playwright E2E smoke tests
