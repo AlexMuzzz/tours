@@ -10,6 +10,7 @@ class TourService
 {
     public function __construct(
         private readonly EmbeddingService $embeddingService,
+        private readonly TourMediaService $tourMediaService,
     ) {
     }
 
@@ -40,7 +41,26 @@ class TourService
 
     public function delete(Tour $tour): void
     {
+        $tour->loadMissing('images');
+
+        $this->tourMediaService->delete($tour->getRawOriginal('main_image'));
+
+        foreach ($tour->images as $image) {
+            $this->tourMediaService->delete($image->getRawOriginal('image_url'));
+        }
+
         $tour->delete();
+
+        $this->tourMediaService->deleteTourDirectory($tour);
+    }
+
+    public function setMainImage(Tour $tour, ?string $mainImage): Tour
+    {
+        $tour->forceFill([
+            'main_image' => $mainImage,
+        ])->save();
+
+        return $this->reloadTour($tour);
     }
 
     public function refreshEmbedding(Tour $tour): Tour
@@ -63,7 +83,7 @@ class TourService
             $payload
         );
 
-        return $tour->fresh(['images', 'dates', 'routePoints', 'embedding']);
+        return $this->reloadTour($tour);
     }
 
     /**
@@ -92,5 +112,10 @@ class TourService
         }
 
         return $candidate;
+    }
+
+    private function reloadTour(Tour $tour): Tour
+    {
+        return $tour->fresh(['images', 'dates', 'routePoints', 'embedding']);
     }
 }

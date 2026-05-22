@@ -103,19 +103,22 @@ function categoryValue(value: string | TourCategory) {
 
 <template>
   <PublicLayout>
-    <section class="content-wrapper pt-10">
-      <div class="glass-panel rounded-[2.6rem] border-0 p-8 md:p-10">
-        <div class="grid gap-10 xl:grid-cols-[340px_minmax(0,1fr)]">
-          <Card class="border-0 bg-white/70 shadow-none">
+    <section class="content-wrapper pb-12 pt-8">
+      <div class="glass-panel relative overflow-hidden rounded-[2.8rem] border-0 p-5 md:p-8 xl:p-10">
+        <div class="pointer-events-none absolute inset-x-10 top-0 h-32 rounded-full bg-[radial-gradient(circle,rgba(24,122,140,0.12),transparent_70%)] blur-3xl" />
+        <div class="pointer-events-none absolute -right-18 top-24 h-56 w-56 rounded-full bg-[radial-gradient(circle,rgba(240,170,102,0.18),transparent_68%)] blur-3xl" />
+
+        <div class="relative grid gap-8 xl:grid-cols-[310px_minmax(0,1fr)] 2xl:grid-cols-[330px_minmax(0,1fr)]">
+          <Card class="border-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.94),rgba(241,249,247,0.86))] shadow-none xl:sticky xl:top-24">
             <template #content>
               <div class="space-y-5">
                 <div>
-                  <div class="text-xs uppercase tracking-[0.24em] text-[var(--travel-muted)]">Каталог</div>
-                  <h1 class="mt-2 text-4xl font-semibold text-[var(--travel-ink)]">
-                    Фильтры и подбор тура
+                  <div class="text-xs uppercase tracking-[0.24em] text-[var(--travel-muted)]">Подбор тура</div>
+                  <h1 class="mt-2 text-4xl font-semibold leading-tight text-[var(--travel-ink)]">
+                    Найдём маршрут под ваш ритм
                   </h1>
                   <p class="mt-3 text-sm leading-6 text-[var(--travel-muted)]">
-                    Комбинируйте категорию, продолжительность, бюджет и текстовый поиск.
+                    Комбинируйте запрос, категорию, бюджет и длительность, чтобы быстрее сузить выбор.
                   </p>
                 </div>
 
@@ -194,7 +197,7 @@ function categoryValue(value: string | TourCategory) {
                 </div>
 
                 <div class="flex flex-col gap-3 sm:flex-row">
-                  <Button label="Применить" class="flex-1" @click="applyFilters(1)" />
+                  <Button label="Показать туры" class="flex-1" @click="applyFilters(1)" />
                   <Button
                     label="Сбросить"
                     severity="secondary"
@@ -208,15 +211,27 @@ function categoryValue(value: string | TourCategory) {
           </Card>
 
           <div class="space-y-6">
-            <div class="flex flex-wrap items-end justify-between gap-4">
-              <div>
-                <div class="text-xs uppercase tracking-[0.24em] text-[var(--travel-muted)]">Результаты</div>
-                <h2 class="mt-2 text-3xl font-semibold text-[var(--travel-ink)]">
-                  Публичный каталог туров
-                </h2>
-                <p v-if="initialTours" class="mt-2 text-sm text-[var(--travel-muted)]">
-                  Всего найдено: {{ initialTours.meta.total }}
-                </p>
+            <div class="rounded-[2rem] border border-[rgba(24,122,140,0.12)] bg-[linear-gradient(135deg,rgba(255,255,255,0.88),rgba(235,247,245,0.86))] px-6 py-6 shadow-[0_18px_48px_rgba(20,49,59,0.07)]">
+              <div class="flex flex-wrap items-end justify-between gap-4">
+                <div>
+                  <div class="text-xs uppercase tracking-[0.24em] text-[var(--travel-muted)]">Результаты</div>
+                  <h2 class="mt-2 text-3xl font-semibold leading-tight text-[var(--travel-ink)]">
+                    Каталог туров без лишнего шума
+                  </h2>
+                  <p class="mt-2 max-w-2xl text-sm leading-6 text-[var(--travel-muted)]">
+                    Смотрите подборку по запросу, сравнивайте цены и переходите к подробностям тура в один клик.
+                  </p>
+                </div>
+
+                <div v-if="initialTours" class="rounded-[1.5rem] bg-white/78 px-5 py-4 text-right shadow-[0_12px_28px_rgba(20,49,59,0.05)]">
+                  <div class="text-xs uppercase tracking-[0.22em] text-[var(--travel-muted)]">Найдено</div>
+                  <div class="mt-1 text-3xl font-semibold text-[var(--travel-ink)]">
+                    {{ initialTours.meta.total }}
+                  </div>
+                  <div class="mt-1 text-sm text-[var(--travel-muted)]">
+                    туров в каталоге
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -252,7 +267,7 @@ function categoryValue(value: string | TourCategory) {
                 <TourCard v-for="tour in initialTours.data" :key="tour.id" :tour="tour" />
               </div>
 
-              <div class="flex flex-wrap items-center justify-between gap-4 rounded-[1.8rem] bg-white/70 px-5 py-4">
+              <div class="flex flex-wrap items-center justify-between gap-4 rounded-[1.8rem] border border-[rgba(22,52,60,0.08)] bg-white/72 px-5 py-4 shadow-[0_12px_32px_rgba(20,49,59,0.05)]">
                 <div class="text-sm text-[var(--travel-muted)]">
                   Страница {{ initialTours.meta.current_page }} из {{ initialTours.meta.last_page }}
                 </div>

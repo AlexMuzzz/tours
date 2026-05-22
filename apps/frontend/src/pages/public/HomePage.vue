@@ -36,7 +36,7 @@ defineProps<{
                 Перейти в каталог
               </a>
               <a href="/admin/login" class="travel-link travel-link-secondary">
-                Открыть admin login
+                Открыть админку
               </a>
             </div>
 
@@ -75,9 +75,9 @@ defineProps<{
 
             <div class="rounded-[2rem] border border-white/70 bg-white/80 p-6 text-[var(--travel-ink)] shadow-xl sm:col-span-2">
               <div class="text-xs uppercase tracking-[0.24em] text-[var(--travel-muted)]">Дальше по roadmap</div>
-              <div class="mt-4 text-3xl font-semibold">Embeddings и AI generation</div>
+              <div class="mt-4 text-3xl font-semibold">Embeddings и hybrid search</div>
               <p class="mt-3 text-sm leading-7 text-[var(--travel-muted)]">
-                Архитектура уже готова к подключению реального semantic search и генерации описаний.
+                Архитектура уже готова к развитию гибридного поиска и дальнейших AI-возможностей.
               </p>
             </div>
           </div>

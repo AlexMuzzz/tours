@@ -34,6 +34,14 @@ beforeAll(() => {
   vi.stubGlobal('ResizeObserver', ResizeObserverMock);
   vi.stubGlobal('IntersectionObserver', IntersectionObserverMock);
   vi.stubGlobal('scrollTo', vi.fn());
+  Object.defineProperty(globalThis.URL, 'createObjectURL', {
+    writable: true,
+    value: vi.fn(() => 'blob:preview'),
+  });
+  Object.defineProperty(globalThis.URL, 'revokeObjectURL', {
+    writable: true,
+    value: vi.fn(),
+  });
 });
 
 afterEach(() => {

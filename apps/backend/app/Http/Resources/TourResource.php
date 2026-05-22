@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\TourMediaPath;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -21,7 +22,7 @@ class TourResource extends JsonResource
             'duration_days' => $this->duration_days,
             'category' => optional($this->category)->value ?? $this->category,
             'is_active' => (bool) $this->is_active,
-            'main_image' => $this->main_image,
+            'main_image' => TourMediaPath::publicUrl($this->main_image),
             'price_from' => $this->dates_min_price !== null ? (float) $this->dates_min_price : null,
             'score' => isset($this->score) ? (float) $this->score : null,
             'images' => TourImageResource::collection($this->whenLoaded('images')),

@@ -4,16 +4,16 @@
 
 :root {
   color-scheme: light;
-  --travel-ink: #17372f;
-  --travel-muted: #5f746d;
-  --travel-sand: #f6f0e3;
-  --travel-foam: #edf7f4;
-  --travel-card: rgba(255, 255, 255, 0.88);
-  --travel-line: rgba(23, 55, 47, 0.12);
-  --travel-sun: #e5a544;
-  --travel-ocean: #2a7b74;
-  --travel-forest: #2e644f;
-  --travel-shadow: 0 24px 80px rgba(36, 62, 52, 0.12);
+  --travel-ink: #16343c;
+  --travel-muted: #667980;
+  --travel-sand: #f5efe6;
+  --travel-foam: #eef8f6;
+  --travel-card: rgba(255, 255, 255, 0.82);
+  --travel-line: rgba(22, 52, 60, 0.1);
+  --travel-sun: #f0aa66;
+  --travel-ocean: #187a8c;
+  --travel-forest: #255d55;
+  --travel-shadow: 0 28px 90px rgba(26, 56, 66, 0.13);
   --surface-ground: var(--travel-sand);
 }
 
@@ -29,9 +29,10 @@ body {
   margin: 0;
   min-width: 320px;
   background:
-    radial-gradient(circle at top left, rgba(229, 165, 68, 0.16), transparent 35%),
-    radial-gradient(circle at top right, rgba(42, 123, 116, 0.16), transparent 26%),
-    linear-gradient(180deg, #fbf7ef 0%, #eef8f4 100%);
+    radial-gradient(circle at top left, rgba(240, 170, 102, 0.2), transparent 32%),
+    radial-gradient(circle at top right, rgba(24, 122, 140, 0.16), transparent 28%),
+    radial-gradient(circle at 50% 0%, rgba(37, 93, 85, 0.08), transparent 24%),
+    linear-gradient(180deg, #fcf7ef 0%, #eff8f5 52%, #f7fbfb 100%);
   color: var(--travel-ink);
   font-family: "Avenir Next", "Segoe UI", sans-serif;
 }
@@ -60,10 +61,14 @@ a {
 }
 
 .glass-panel {
-  background: var(--travel-card);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(247, 252, 251, 0.8)),
+    var(--travel-card);
   backdrop-filter: blur(18px);
   border: 1px solid var(--travel-line);
-  box-shadow: var(--travel-shadow);
+  box-shadow:
+    0 20px 60px rgba(20, 49, 59, 0.08),
+    var(--travel-shadow);
 }
 
 .travel-link {
@@ -72,30 +77,35 @@ a {
   justify-content: center;
   gap: 0.5rem;
   border-radius: 999px;
-  padding: 0.85rem 1.3rem;
+  padding: 0.9rem 1.35rem;
   font-weight: 600;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    background-color 0.2s ease,
+    border-color 0.2s ease;
 }
 
 .travel-link:hover {
-  transform: translateY(-1px);
+  transform: translateY(-2px);
 }
 
 .travel-link-primary {
-  background: linear-gradient(135deg, var(--travel-ocean), var(--travel-forest));
+  background: linear-gradient(135deg, var(--travel-ocean), #24706a 54%, var(--travel-forest));
   color: white;
-  box-shadow: 0 18px 38px rgba(42, 123, 116, 0.22);
+  box-shadow: 0 18px 42px rgba(24, 122, 140, 0.24);
 }
 
 .travel-link-secondary {
-  background: rgba(255, 255, 255, 0.65);
-  border: 1px solid rgba(23, 55, 47, 0.12);
+  background: rgba(255, 255, 255, 0.76);
+  border: 1px solid rgba(22, 52, 60, 0.1);
   color: var(--travel-ink);
+  box-shadow: 0 14px 34px rgba(20, 49, 59, 0.06);
 }
 
 .travel-grid {
   display: grid;
-  gap: 1rem;
+  gap: 1.25rem;
 }
 
 .travel-dot {
@@ -107,7 +117,7 @@ a {
 }
 
 .content-wrapper {
-  width: min(1180px, calc(100% - 2rem));
+  width: min(1360px, calc(100% - 2.5rem));
   margin: 0 auto;
 }
 
@@ -115,4 +125,10 @@ a {
   background:
     radial-gradient(circle at top, rgba(42, 123, 116, 0.12), transparent 42%),
     linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(236, 247, 243, 0.88));
+}
+
+@media (max-width: 640px) {
+  .content-wrapper {
+    width: min(100%, calc(100% - 1.25rem));
+  }
 }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue';
+import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue';
 import { navigate } from 'vike/client/router';
 import Button from 'primevue/button';
 import Card from 'primevue/card';
@@ -11,6 +11,7 @@ import { useToast } from 'primevue/usetoast';
 import AdminLayout from '@/layouts/AdminLayout.vue';
 import { adminTourService } from '@/services/adminTourService';
 import { getErrorMessage, getFieldError } from '@/utils/errors';
+import { resolveMediaUrl } from '@/utils/media';
 import { categoryOptions } from '@/utils/tourMeta';
 import type { TourCategory, TourPayload } from '@/types/api';
 
@@ -29,6 +30,40 @@ const form = reactive({
 const submitting = ref(false);
 const formErrors = ref<Record<string, string[]>>({});
 const pageError = ref('');
+const mainImageInput = ref<HTMLInputElement | null>(null);
+const mainImageFile = ref<File | null>(null);
+const mainImagePreviewUrl = ref('');
+const mainImagePreviewFailed = ref(false);
+
+const previewSource = computed(() => mainImagePreviewUrl.value || resolveMediaUrl(form.main_image));
+
+function setMainImageFile(file: File | null) {
+  if (mainImagePreviewUrl.value) {
+    URL.revokeObjectURL(mainImagePreviewUrl.value);
+    mainImagePreviewUrl.value = '';
+  }
+
+  mainImageFile.value = file;
+
+  if (file) {
+    mainImagePreviewUrl.value = URL.createObjectURL(file);
+  }
+}
+
+function handleMainImageFileChange(event: Event) {
+  const file = (event.target as HTMLInputElement).files?.[0] ?? null;
+
+  setMainImageFile(file);
+}
+
+function clearMainImageSelection() {
+  form.main_image = '';
+  setMainImageFile(null);
+
+  if (mainImageInput.value) {
+    mainImageInput.value.value = '';
+  }
+}
 
 function buildPayload(): TourPayload {
   return {
@@ -38,7 +73,8 @@ function buildPayload(): TourPayload {
     duration_days: Number(form.duration_days),
     category: form.category,
     is_active: form.is_active,
-    main_image: form.main_image,
+    main_image: form.main_image || null,
+    main_image_file: mainImageFile.value,
   };
 }
 
@@ -67,6 +103,16 @@ async function handleSubmit() {
     submitting.value = false;
   }
 }
+
+watch(previewSource, () => {
+  mainImagePreviewFailed.value = false;
+});
+
+onBeforeUnmount(() => {
+  if (mainImagePreviewUrl.value) {
+    URL.revokeObjectURL(mainImagePreviewUrl.value);
+  }
+});
 </script>
 
 <template>
@@ -80,7 +126,7 @@ async function handleSubmit() {
           <div class="grid gap-6 xl:grid-cols-[1fr_360px]">
             <div class="space-y-5">
               <label class="block space-y-2">
-                <span class="text-sm font-medium text-[var(--travel-ink)]">Title</span>
+                <span class="text-sm font-medium text-[var(--travel-ink)]">Название</span>
                 <InputText v-model="form.title" fluid />
                 <small v-if="getFieldError(formErrors, 'title')" class="text-red-600">
                   {{ getFieldError(formErrors, 'title') }}
@@ -88,7 +134,7 @@ async function handleSubmit() {
               </label>
 
               <label class="block space-y-2">
-                <span class="text-sm font-medium text-[var(--travel-ink)]">Short description</span>
+                <span class="text-sm font-medium text-[var(--travel-ink)]">Краткое описание</span>
                 <Textarea v-model="form.short_description" auto-resize rows="4" fluid />
                 <small v-if="getFieldError(formErrors, 'short_description')" class="text-red-600">
                   {{ getFieldError(formErrors, 'short_description') }}
@@ -96,7 +142,7 @@ async function handleSubmit() {
               </label>
 
               <label class="block space-y-2">
-                <span class="text-sm font-medium text-[var(--travel-ink)]">Description</span>
+                <span class="text-sm font-medium text-[var(--travel-ink)]">Описание</span>
                 <Textarea v-model="form.description" auto-resize rows="10" fluid />
                 <small v-if="getFieldError(formErrors, 'description')" class="text-red-600">
                   {{ getFieldError(formErrors, 'description') }}
@@ -106,7 +152,7 @@ async function handleSubmit() {
 
             <div class="space-y-5">
               <label class="block space-y-2">
-                <span class="text-sm font-medium text-[var(--travel-ink)]">Duration days</span>
+                <span class="text-sm font-medium text-[var(--travel-ink)]">Длительность (дней)</span>
                 <InputText v-model="form.duration_days" type="number" min="1" fluid />
                 <small v-if="getFieldError(formErrors, 'duration_days')" class="text-red-600">
                   {{ getFieldError(formErrors, 'duration_days') }}
@@ -114,7 +160,7 @@ async function handleSubmit() {
               </label>
 
               <label class="block space-y-2">
-                <span class="text-sm font-medium text-[var(--travel-ink)]">Category</span>
+                <span class="text-sm font-medium text-[var(--travel-ink)]">Категория</span>
                 <Select v-model="form.category" :options="categoryOptions" option-label="label" option-value="value" fluid />
                 <small v-if="getFieldError(formErrors, 'category')" class="text-red-600">
                   {{ getFieldError(formErrors, 'category') }}
@@ -122,7 +168,24 @@ async function handleSubmit() {
               </label>
 
               <label class="block space-y-2">
-                <span class="text-sm font-medium text-[var(--travel-ink)]">Main image URL</span>
+                <span class="text-sm font-medium text-[var(--travel-ink)]">Файл главного изображения</span>
+                <input
+                  ref="mainImageInput"
+                  class="block w-full rounded-[1rem] border border-[var(--travel-line)] bg-white px-4 py-3 text-sm text-[var(--travel-ink)]"
+                  type="file"
+                  accept="image/*"
+                  @change="handleMainImageFileChange"
+                >
+                <small class="text-[var(--travel-muted)]">
+                  Если выбрать файл и заполнить URL, приоритет будет у файла.
+                </small>
+                <small v-if="getFieldError(formErrors, 'main_image_file')" class="text-red-600">
+                  {{ getFieldError(formErrors, 'main_image_file') }}
+                </small>
+              </label>
+
+              <label class="block space-y-2">
+                <span class="text-sm font-medium text-[var(--travel-ink)]">URL главного изображения</span>
                 <InputText v-model="form.main_image" type="url" fluid />
                 <small v-if="getFieldError(formErrors, 'main_image')" class="text-red-600">
                   {{ getFieldError(formErrors, 'main_image') }}
@@ -136,17 +199,44 @@ async function handleSubmit() {
 
               <div class="overflow-hidden rounded-[1.8rem] border border-[var(--travel-line)] bg-white/70">
                 <img
-                  v-if="form.main_image"
-                  :src="form.main_image"
-                  alt="Preview"
+                  v-if="previewSource && !mainImagePreviewFailed"
+                  data-testid="main-image-preview"
+                  :src="previewSource"
+                  alt="Превью главного изображения"
                   class="h-52 w-full object-cover"
+                  @error="mainImagePreviewFailed = true"
                 />
+                <div
+                  v-else-if="previewSource"
+                  class="flex h-52 items-center justify-center px-5 text-center text-sm text-[var(--travel-muted)]"
+                >
+                  Файл может быть сохранён, но сервер не отдал его для превью. Проверьте адрес или доступность файла.
+                </div>
                 <div
                   v-else
                   class="flex h-52 items-center justify-center text-sm text-[var(--travel-muted)]"
                 >
-                  Превью изображения появится после вставки URL
+                  Превью изображения появится после загрузки файла или вставки URL
                 </div>
+              </div>
+
+              <div v-if="previewSource || mainImageFile || form.main_image" class="flex flex-wrap gap-3">
+                <a
+                  v-if="previewSource"
+                  :href="previewSource"
+                  target="_blank"
+                  rel="noreferrer"
+                  class="travel-link travel-link-secondary justify-center"
+                >
+                  Открыть превью
+                </a>
+                <Button
+                  type="button"
+                  label="Очистить изображение"
+                  severity="secondary"
+                  outlined
+                  @click="clearMainImageSelection"
+                />
               </div>
             </div>
           </div>

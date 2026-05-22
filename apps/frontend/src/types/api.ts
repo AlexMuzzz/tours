@@ -133,11 +133,14 @@ export interface TourPayload {
   duration_days: number;
   category: TourCategory;
   is_active: boolean;
-  main_image: string;
+  main_image?: string | null;
+  main_image_file?: File | null;
+  remove_main_image?: boolean;
 }
 
 export interface TourImagePayload {
-  image_url: string;
+  image_url?: string | null;
+  image_file?: File | null;
   alt_text?: string;
   sort_order?: number;
 }
@@ -156,8 +159,4 @@ export interface TourRoutePointPayload {
   latitude: number;
   longitude: number;
   sort_order: number;
-}
-
-export interface GeneratedDescriptionResponse {
-  description: string;
 }

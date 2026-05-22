@@ -98,7 +98,6 @@ npm run test
   - images
   - dates
   - route points
-  - generate description
 
 ## Используемые backend endpoints
 
@@ -132,7 +131,6 @@ npm run test
 - `POST /api/admin/tours/{id}/route-points`
 - `PUT /api/admin/tour-route-points/{id}`
 - `DELETE /api/admin/tour-route-points/{id}`
-- `POST /api/admin/tours/{id}/generate-description`
 
 ## Как работает admin login
 

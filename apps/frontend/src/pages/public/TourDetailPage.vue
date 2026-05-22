@@ -3,11 +3,13 @@ import { computed, ref, watch } from 'vue';
 import Card from 'primevue/card';
 import Tag from 'primevue/tag';
 import type { Tour } from '@/types/api';
+import { useImageAvailability } from '@/composables/useImageAvailability';
 import PublicLayout from '@/layouts/PublicLayout.vue';
 import CategoryTag from '@/components/CategoryTag.vue';
 import StateBlock from '@/components/StateBlock.vue';
 import TourMap from '@/components/TourMap.vue';
 import { formatDateRange, formatDuration, formatPrice } from '@/utils/formatters';
+import { resolveMediaUrl } from '@/utils/media';
 
 const props = defineProps<{
   tour: Tour | null;
@@ -22,16 +24,20 @@ const galleryImages = computed(() => {
   const seen = new Set<string>();
   const images: Array<{ url: string; alt: string }> = [];
 
-  if (props.tour.main_image) {
-    seen.add(props.tour.main_image);
-    images.push({ url: props.tour.main_image, alt: props.tour.title });
+  const mainImageUrl = resolveMediaUrl(props.tour.main_image);
+
+  if (mainImageUrl) {
+    seen.add(mainImageUrl);
+    images.push({ url: mainImageUrl, alt: props.tour.title });
   }
 
   (props.tour.images ?? []).forEach((image) => {
-    if (!seen.has(image.image_url)) {
-      seen.add(image.image_url);
+    const imageUrl = resolveMediaUrl(image.image_url);
+
+    if (imageUrl && !seen.has(imageUrl)) {
+      seen.add(imageUrl);
       images.push({
-        url: image.image_url,
+        url: imageUrl,
         alt: image.alt_text || props.tour?.title || 'Tour image',
       });
     }
@@ -45,9 +51,31 @@ const routePoints = computed(() =>
 );
 
 const activeImage = ref('');
+const failedImageUrls = ref<string[]>([]);
+
+const visibleGalleryImages = computed(() =>
+  galleryImages.value.filter((image) => !failedImageUrls.value.includes(image.url)),
+);
+const { isBroken: activeImageBroken } = useImageAvailability(activeImage);
+
+function markImageFailed(url: string) {
+  if (!failedImageUrls.value.includes(url)) {
+    failedImageUrls.value = [...failedImageUrls.value, url];
+  }
+}
+
+watch(galleryImages, (images) => {
+  failedImageUrls.value = failedImageUrls.value.filter((url) => images.some((image) => image.url === url));
+});
+
+watch(activeImageBroken, (isBroken) => {
+  if (isBroken && activeImage.value) {
+    markImageFailed(activeImage.value);
+  }
+});
 
 watch(
-  galleryImages,
+  visibleGalleryImages,
   (images) => {
     if (!images.some((image) => image.url === activeImage.value)) {
       activeImage.value = images[0]?.url ?? '';
@@ -76,7 +104,14 @@ watch(
                   :src="activeImage"
                   :alt="tour.title"
                   class="h-[420px] w-full object-cover"
+                  @error="markImageFailed(activeImage)"
                 />
+                <div
+                  v-else-if="galleryImages.length"
+                  class="flex h-[420px] items-center justify-center bg-gradient-to-br from-[rgba(42,123,116,0.14)] to-[rgba(229,165,68,0.16)] px-6 text-center text-sm text-[var(--travel-muted)]"
+                >
+                  Изображение тура временно недоступно
+                </div>
                 <div
                   v-else
                   class="flex h-[420px] items-center justify-center bg-gradient-to-br from-[rgba(42,123,116,0.14)] to-[rgba(229,165,68,0.16)] text-sm text-[var(--travel-muted)]"
@@ -85,16 +120,16 @@ watch(
                 </div>
               </div>
 
-              <div v-if="galleryImages.length > 1" class="grid grid-cols-4 gap-3">
+              <div v-if="visibleGalleryImages.length > 1" class="grid grid-cols-4 gap-3">
                 <button
-                  v-for="image in galleryImages"
+                  v-for="image in visibleGalleryImages"
                   :key="image.url"
                   type="button"
                   class="overflow-hidden rounded-[1.25rem] border-2 transition"
                   :class="activeImage === image.url ? 'border-[var(--travel-ocean)]' : 'border-transparent'"
                   @click="activeImage = image.url"
                 >
-                  <img :src="image.url" :alt="image.alt" class="h-24 w-full object-cover" />
+                  <img :src="image.url" :alt="image.alt" class="h-24 w-full object-cover" @error="markImageFailed(image.url)" />
                 </button>
               </div>
             </div>

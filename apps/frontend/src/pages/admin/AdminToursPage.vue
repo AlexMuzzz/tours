@@ -138,7 +138,7 @@ onMounted(() => {
             responsive-layout="scroll"
             class="overflow-hidden rounded-[1.5rem]"
           >
-            <Column field="title" header="Title">
+            <Column field="title" header="Название">
               <template #body="{ data }">
                 <div>
                   <div class="font-semibold text-[var(--travel-ink)]">{{ data.title }}</div>
@@ -147,19 +147,19 @@ onMounted(() => {
               </template>
             </Column>
 
-            <Column header="Category">
+            <Column header="Категория">
               <template #body="{ data }">
                 {{ formatCategory(data.category) }}
               </template>
             </Column>
 
-            <Column header="Duration">
+            <Column header="Длительность">
               <template #body="{ data }">
                 {{ formatDuration(data.duration_days) }}
               </template>
             </Column>
 
-            <Column header="Status">
+            <Column header="Статус">
               <template #body="{ data }">
                 <div class="flex flex-col items-start gap-2">
                   <Tag :severity="data.is_active ? 'success' : 'warn'" :value="data.is_active ? 'Активен' : 'Скрыт'" rounded />
@@ -175,23 +175,23 @@ onMounted(() => {
               </template>
             </Column>
 
-            <Column header="Created">
+            <Column header="Создан">
               <template #body="{ data }">
                 {{ formatDateTime(data.created_at) }}
               </template>
             </Column>
 
-            <Column header="Actions">
+            <Column header="Действия">
               <template #body="{ data }">
                 <div class="flex gap-2">
                   <Button
-                    label="Edit"
+                    label="Редактировать"
                     size="small"
                     icon="pi pi-pencil"
                     @click="navigate(`/admin/tours/${data.id}/edit`)"
                   />
                   <Button
-                    label="Delete"
+                    label="Удалить"
                     size="small"
                     severity="danger"
                     outlined

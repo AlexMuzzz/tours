@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import Button from 'primevue/button';
 import Card from 'primevue/card';
 import Checkbox from 'primevue/checkbox';
@@ -18,6 +18,7 @@ import { adminTourService } from '@/services/adminTourService';
 import { categoryOptions, currencyOptions } from '@/utils/tourMeta';
 import { formatCategory, formatDateRange, formatPrice } from '@/utils/formatters';
 import { getErrorMessage, getFieldError } from '@/utils/errors';
+import { resolveMediaUrl } from '@/utils/media';
 import type {
   CurrencyCode,
   Tour,
@@ -39,9 +40,6 @@ const error = ref('');
 const tour = ref<Tour | null>(null);
 
 const savingMain = ref(false);
-const generatedDescription = ref('');
-const generatedDialogVisible = ref(false);
-const generatingDescription = ref(false);
 
 const imageSubmitting = ref(false);
 const dateSubmitting = ref(false);
@@ -53,6 +51,15 @@ const formErrors = ref<Record<string, string[]>>({});
 const imageErrors = ref<Record<string, string[]>>({});
 const dateErrors = ref<Record<string, string[]>>({});
 const routeErrors = ref<Record<string, string[]>>({});
+const mainImageInput = ref<HTMLInputElement | null>(null);
+const mainImageFile = ref<File | null>(null);
+const mainImagePreviewUrl = ref('');
+const mainImagePreviewFailed = ref(false);
+const removeMainImage = ref(false);
+const galleryImageInput = ref<HTMLInputElement | null>(null);
+const galleryImageFile = ref<File | null>(null);
+const galleryImagePreviewUrl = ref('');
+const galleryImagePreviewFailed = ref(false);
 
 const mainForm = reactive({
   title: '',
@@ -109,6 +116,94 @@ const dates = computed(() => tour.value?.dates ?? []);
 const routePoints = computed(() =>
   [...(tour.value?.route_points ?? [])].sort((left, right) => left.sort_order - right.sort_order),
 );
+const mainImagePreviewSource = computed(() => {
+  if (mainImagePreviewUrl.value) {
+    return mainImagePreviewUrl.value;
+  }
+
+  if (removeMainImage.value) {
+    return '';
+  }
+
+  return resolveMediaUrl(mainForm.main_image);
+});
+const galleryPreviewSource = computed(() => galleryImagePreviewUrl.value || resolveMediaUrl(imageForm.image_url));
+
+function replaceObjectUrl(target: typeof mainImagePreviewUrl, file: File | null) {
+  if (target.value) {
+    URL.revokeObjectURL(target.value);
+    target.value = '';
+  }
+
+  if (file) {
+    target.value = URL.createObjectURL(file);
+  }
+}
+
+function setMainImageFile(file: File | null) {
+  mainImageFile.value = file;
+  replaceObjectUrl(mainImagePreviewUrl, file);
+
+  if (file) {
+    removeMainImage.value = false;
+  }
+}
+
+function setGalleryImageFile(file: File | null) {
+  galleryImageFile.value = file;
+  replaceObjectUrl(galleryImagePreviewUrl, file);
+}
+
+function handleMainImageFileChange(event: Event) {
+  const file = (event.target as HTMLInputElement).files?.[0] ?? null;
+
+  setMainImageFile(file);
+}
+
+function handleGalleryImageFileChange(event: Event) {
+  const file = (event.target as HTMLInputElement).files?.[0] ?? null;
+
+  setGalleryImageFile(file);
+}
+
+function handleMainImageUrlUpdate(value: string | number | undefined) {
+  mainForm.main_image = String(value ?? '');
+
+  if (mainForm.main_image !== '') {
+    removeMainImage.value = false;
+  }
+}
+
+function markMainImageForRemoval() {
+  removeMainImage.value = true;
+  mainForm.main_image = '';
+  setMainImageFile(null);
+
+  if (mainImageInput.value) {
+    mainImageInput.value.value = '';
+  }
+}
+
+function clearSelectedMainImageFile() {
+  setMainImageFile(null);
+
+  if (mainImageInput.value) {
+    mainImageInput.value.value = '';
+  }
+}
+
+function restoreMainImage() {
+  removeMainImage.value = false;
+}
+
+function clearGalleryImageSelection() {
+  imageForm.image_url = '';
+  setGalleryImageFile(null);
+
+  if (galleryImageInput.value) {
+    galleryImageInput.value.value = '';
+  }
+}
 
 function syncMainForm(source: Tour) {
   mainForm.title = source.title;
@@ -118,12 +213,23 @@ function syncMainForm(source: Tour) {
   mainForm.category = source.category;
   mainForm.is_active = source.is_active;
   mainForm.main_image = source.main_image ?? '';
+  removeMainImage.value = false;
+  setMainImageFile(null);
+
+  if (mainImageInput.value) {
+    mainImageInput.value.value = '';
+  }
 }
 
 function resetImageForm() {
   imageForm.image_url = '';
   imageForm.alt_text = '';
   imageForm.sort_order = String((images.value.at(-1)?.sort_order ?? 0) + 1);
+  setGalleryImageFile(null);
+
+  if (galleryImageInput.value) {
+    galleryImageInput.value.value = '';
+  }
 }
 
 function resetDateCreateForm() {
@@ -172,7 +278,9 @@ function buildMainPayload(): TourPayload {
     duration_days: Number(mainForm.duration_days),
     category: mainForm.category,
     is_active: mainForm.is_active,
-    main_image: mainForm.main_image,
+    main_image: mainForm.main_image || null,
+    main_image_file: mainImageFile.value,
+    remove_main_image: removeMainImage.value,
   };
 }
 
@@ -211,7 +319,8 @@ async function addImage() {
 
   try {
     await adminTourService.addImage(props.id, {
-      image_url: imageForm.image_url,
+      image_url: imageForm.image_url || null,
+      image_file: galleryImageFile.value,
       alt_text: imageForm.alt_text,
       sort_order: Number(imageForm.sort_order || 0),
     });
@@ -220,7 +329,7 @@ async function addImage() {
     toast.add({
       severity: 'success',
       summary: 'Изображение добавлено',
-      detail: 'URL сохранён в галерее тура.',
+      detail: 'Изображение сохранено в галерее тура.',
       life: 2500,
     });
   } catch (requestError) {
@@ -230,7 +339,7 @@ async function addImage() {
     toast.add({
       severity: 'error',
       summary: 'Не удалось добавить изображение',
-      detail: getErrorMessage(requestError, 'Проверьте URL изображения.'),
+      detail: getErrorMessage(requestError, 'Проверьте файл изображения или URL.'),
       life: 3500,
     });
   } finally {
@@ -446,38 +555,21 @@ function confirmDeleteRoutePoint(routePointId: number) {
   });
 }
 
-async function requestGeneratedDescription() {
-  generatingDescription.value = true;
+watch(mainImagePreviewSource, () => {
+  mainImagePreviewFailed.value = false;
+});
 
-  try {
-    const response = await adminTourService.generateDescription(props.id);
-    generatedDescription.value = response.description;
-    generatedDialogVisible.value = true;
-  } catch (requestError) {
-    toast.add({
-      severity: 'error',
-      summary: 'Генерация не удалась',
-      detail: getErrorMessage(requestError, 'Не удалось получить stub-описание.'),
-      life: 3500,
-    });
-  } finally {
-    generatingDescription.value = false;
-  }
-}
-
-function useGeneratedDescription() {
-  mainForm.description = generatedDescription.value;
-  generatedDialogVisible.value = false;
-  toast.add({
-    severity: 'success',
-    summary: 'Описание вставлено',
-    detail: 'Сохраните основную форму, чтобы отправить его в backend.',
-    life: 2500,
-  });
-}
+watch(galleryPreviewSource, () => {
+  galleryImagePreviewFailed.value = false;
+});
 
 onMounted(() => {
   void loadTour();
+});
+
+onBeforeUnmount(() => {
+  replaceObjectUrl(mainImagePreviewUrl, null);
+  replaceObjectUrl(galleryImagePreviewUrl, null);
 });
 </script>
 
@@ -519,7 +611,7 @@ onMounted(() => {
             <div class="grid gap-6 xl:grid-cols-[1fr_360px]">
               <div class="space-y-5">
                 <label class="block space-y-2">
-                  <span class="text-sm font-medium text-[var(--travel-ink)]">Title</span>
+                  <span class="text-sm font-medium text-[var(--travel-ink)]">Название</span>
                   <InputText v-model="mainForm.title" fluid />
                   <small v-if="getFieldError(formErrors, 'title')" class="text-red-600">
                     {{ getFieldError(formErrors, 'title') }}
@@ -527,7 +619,7 @@ onMounted(() => {
                 </label>
 
                 <label class="block space-y-2">
-                  <span class="text-sm font-medium text-[var(--travel-ink)]">Short description</span>
+                  <span class="text-sm font-medium text-[var(--travel-ink)]">Краткое описание</span>
                   <Textarea v-model="mainForm.short_description" auto-resize rows="4" fluid />
                   <small v-if="getFieldError(formErrors, 'short_description')" class="text-red-600">
                     {{ getFieldError(formErrors, 'short_description') }}
@@ -535,7 +627,7 @@ onMounted(() => {
                 </label>
 
                 <label class="block space-y-2">
-                  <span class="text-sm font-medium text-[var(--travel-ink)]">Description</span>
+                  <span class="text-sm font-medium text-[var(--travel-ink)]">Описание</span>
                   <Textarea v-model="mainForm.description" auto-resize rows="10" fluid />
                   <small v-if="getFieldError(formErrors, 'description')" class="text-red-600">
                     {{ getFieldError(formErrors, 'description') }}
@@ -545,7 +637,7 @@ onMounted(() => {
 
               <div class="space-y-5">
                 <label class="block space-y-2">
-                  <span class="text-sm font-medium text-[var(--travel-ink)]">Duration days</span>
+                  <span class="text-sm font-medium text-[var(--travel-ink)]">Длительность (дней)</span>
                   <InputText v-model="mainForm.duration_days" type="number" min="1" fluid />
                   <small v-if="getFieldError(formErrors, 'duration_days')" class="text-red-600">
                     {{ getFieldError(formErrors, 'duration_days') }}
@@ -553,7 +645,7 @@ onMounted(() => {
                 </label>
 
                 <label class="block space-y-2">
-                  <span class="text-sm font-medium text-[var(--travel-ink)]">Category</span>
+                  <span class="text-sm font-medium text-[var(--travel-ink)]">Категория</span>
                   <Select v-model="mainForm.category" :options="categoryOptions" option-label="label" option-value="value" fluid />
                   <small v-if="getFieldError(formErrors, 'category')" class="text-red-600">
                     {{ getFieldError(formErrors, 'category') }}
@@ -561,12 +653,63 @@ onMounted(() => {
                 </label>
 
                 <label class="block space-y-2">
-                  <span class="text-sm font-medium text-[var(--travel-ink)]">Main image URL</span>
-                  <InputText v-model="mainForm.main_image" type="url" fluid />
+                  <span class="text-sm font-medium text-[var(--travel-ink)]">Файл главного изображения</span>
+                  <input
+                    ref="mainImageInput"
+                    class="block w-full rounded-[1rem] border border-[var(--travel-line)] bg-white px-4 py-3 text-sm text-[var(--travel-ink)]"
+                    type="file"
+                    accept="image/*"
+                    @change="handleMainImageFileChange"
+                  >
+                  <small class="text-[var(--travel-muted)]">
+                    Новый файл заменит текущее изображение после сохранения.
+                  </small>
+                  <small v-if="getFieldError(formErrors, 'main_image_file')" class="text-red-600">
+                    {{ getFieldError(formErrors, 'main_image_file') }}
+                  </small>
+                </label>
+
+                <label class="block space-y-2">
+                  <span class="text-sm font-medium text-[var(--travel-ink)]">URL главного изображения</span>
+                  <InputText
+                    v-model="mainForm.main_image"
+                    type="url"
+                    fluid
+                    @update:model-value="handleMainImageUrlUpdate"
+                  />
                   <small v-if="getFieldError(formErrors, 'main_image')" class="text-red-600">
                     {{ getFieldError(formErrors, 'main_image') }}
                   </small>
                 </label>
+
+                <div class="flex flex-wrap gap-3">
+                  <Button
+                    type="button"
+                    label="Убрать текущее изображение"
+                    severity="secondary"
+                    outlined
+                    @click="markMainImageForRemoval"
+                  />
+                  <Button
+                    v-if="mainImageFile"
+                    type="button"
+                    label="Сбросить выбранный файл"
+                    severity="secondary"
+                    text
+                    @click="clearSelectedMainImageFile"
+                  />
+                  <Button
+                    v-if="removeMainImage"
+                    type="button"
+                    label="Вернуть изображение"
+                    severity="secondary"
+                    text
+                    @click="restoreMainImage"
+                  />
+                  <span v-if="removeMainImage" class="self-center text-sm text-[var(--travel-muted)]">
+                    Изображение будет удалено после сохранения.
+                  </span>
+                </div>
 
                 <label class="flex items-center gap-3 rounded-[1.5rem] bg-white/70 px-4 py-4">
                   <Checkbox v-model="mainForm.is_active" binary input-id="edit_is_active" />
@@ -575,17 +718,36 @@ onMounted(() => {
 
                 <div class="overflow-hidden rounded-[1.8rem] border border-[var(--travel-line)] bg-white/70">
                   <img
-                    v-if="mainForm.main_image"
-                    :src="mainForm.main_image"
-                    alt="Preview"
+                    v-if="mainImagePreviewSource && !mainImagePreviewFailed"
+                    data-testid="main-image-preview"
+                    :src="mainImagePreviewSource"
+                    alt="Превью главного изображения"
                     class="h-52 w-full object-cover"
+                    @error="mainImagePreviewFailed = true"
                   />
+                  <div
+                    v-else-if="mainImagePreviewSource"
+                    class="flex h-52 items-center justify-center px-5 text-center text-sm text-[var(--travel-muted)]"
+                  >
+                    Файл может быть сохранён, но сервер не отдал его для превью. Проверьте адрес или доступность файла.
+                  </div>
                   <div
                     v-else
                     class="flex h-52 items-center justify-center text-sm text-[var(--travel-muted)]"
                   >
                     Превью main_image появится здесь
                   </div>
+                </div>
+
+                <div v-if="mainImagePreviewSource" class="flex flex-wrap gap-3">
+                  <a
+                    :href="mainImagePreviewSource"
+                    target="_blank"
+                    rel="noreferrer"
+                    class="travel-link travel-link-secondary justify-center"
+                  >
+                    Открыть изображение
+                  </a>
                 </div>
               </div>
             </div>
@@ -604,7 +766,7 @@ onMounted(() => {
         <template #content>
           <div class="space-y-5">
             <div>
-              <div class="text-xs uppercase tracking-[0.24em] text-[var(--travel-muted)]">Images</div>
+              <div class="text-xs uppercase tracking-[0.24em] text-[var(--travel-muted)]">Изображения</div>
               <h2 class="mt-2 text-3xl font-semibold text-[var(--travel-ink)]">
                 Галерея тура
               </h2>
@@ -616,10 +778,10 @@ onMounted(() => {
                 :key="image.id"
                 class="rounded-[1.5rem] border border-[var(--travel-line)] bg-white/75 p-4"
               >
-                <img :src="image.image_url" :alt="image.alt_text || tour.title" class="h-44 w-full rounded-[1.1rem] object-cover" />
+                <img :src="resolveMediaUrl(image.image_url)" :alt="image.alt_text || tour.title" class="h-44 w-full rounded-[1.1rem] object-cover" />
                 <div class="mt-4 space-y-1">
                   <div class="text-sm font-semibold text-[var(--travel-ink)]">{{ image.alt_text || 'Без alt text' }}</div>
-                  <div class="text-xs text-[var(--travel-muted)]">sort_order: {{ image.sort_order }}</div>
+                  <div class="text-xs text-[var(--travel-muted)]">Порядок: {{ image.sort_order }}</div>
                 </div>
                 <Button
                   label="Удалить"
@@ -632,24 +794,72 @@ onMounted(() => {
               </article>
             </div>
 
-            <form class="grid gap-4 rounded-[1.8rem] bg-white/70 p-5 md:grid-cols-[1.4fr_1fr_120px_auto]" @submit.prevent="addImage">
+            <form class="grid gap-4 rounded-[1.8rem] bg-white/70 p-5 md:grid-cols-2 xl:grid-cols-[1fr_1.2fr_1fr_120px_auto]" @submit.prevent="addImage">
+              <div class="space-y-2 md:col-span-2 xl:col-span-1">
+                <span class="text-sm font-medium text-[var(--travel-ink)]">Файл изображения</span>
+                <input
+                  ref="galleryImageInput"
+                  class="block w-full rounded-[1rem] border border-[var(--travel-line)] bg-white px-4 py-3 text-sm text-[var(--travel-ink)]"
+                  type="file"
+                  accept="image/*"
+                  @change="handleGalleryImageFileChange"
+                >
+                <small v-if="getFieldError(imageErrors, 'image_file')" class="text-red-600">
+                  {{ getFieldError(imageErrors, 'image_file') }}
+                </small>
+              </div>
               <div class="space-y-2">
-                <span class="text-sm font-medium text-[var(--travel-ink)]">Image URL</span>
+                <span class="text-sm font-medium text-[var(--travel-ink)]">URL изображения</span>
                 <InputText v-model="imageForm.image_url" type="url" fluid />
                 <small v-if="getFieldError(imageErrors, 'image_url')" class="text-red-600">
                   {{ getFieldError(imageErrors, 'image_url') }}
                 </small>
               </div>
               <div class="space-y-2">
-                <span class="text-sm font-medium text-[var(--travel-ink)]">Alt text</span>
+                <span class="text-sm font-medium text-[var(--travel-ink)]">Альтернативный текст</span>
                 <InputText v-model="imageForm.alt_text" fluid />
               </div>
               <div class="space-y-2">
-                <span class="text-sm font-medium text-[var(--travel-ink)]">Sort</span>
+                <span class="text-sm font-medium text-[var(--travel-ink)]">Порядок</span>
                 <InputText v-model="imageForm.sort_order" type="number" min="0" fluid />
               </div>
               <div class="flex items-end">
                 <Button type="submit" label="Добавить" icon="pi pi-plus" :loading="imageSubmitting" />
+              </div>
+              <div v-if="galleryPreviewSource" class="space-y-3 md:col-span-2 xl:col-span-5">
+                <div class="overflow-hidden rounded-[1.5rem] border border-[var(--travel-line)] bg-white">
+                  <img
+                    v-if="!galleryImagePreviewFailed"
+                    data-testid="gallery-image-preview"
+                    :src="galleryPreviewSource"
+                    alt="Превью изображения галереи"
+                    class="h-48 w-full object-cover"
+                    @error="galleryImagePreviewFailed = true"
+                  />
+                  <div
+                    v-else
+                    class="flex h-48 items-center justify-center px-5 text-center text-sm text-[var(--travel-muted)]"
+                  >
+                    Файл может быть сохранён, но сервер не отдал его для превью. Проверьте URL или доступность файла.
+                  </div>
+                </div>
+                <div class="flex flex-wrap gap-3">
+                  <a
+                    :href="galleryPreviewSource"
+                    target="_blank"
+                    rel="noreferrer"
+                    class="travel-link travel-link-secondary justify-center"
+                  >
+                    Открыть превью
+                  </a>
+                  <Button
+                    type="button"
+                    label="Очистить превью"
+                    severity="secondary"
+                    outlined
+                    @click="clearGalleryImageSelection"
+                  />
+                </div>
               </div>
             </form>
           </div>
@@ -660,7 +870,7 @@ onMounted(() => {
         <template #content>
           <div class="space-y-5">
             <div>
-              <div class="text-xs uppercase tracking-[0.24em] text-[var(--travel-muted)]">Dates</div>
+              <div class="text-xs uppercase tracking-[0.24em] text-[var(--travel-muted)]">Даты</div>
               <h2 class="mt-2 text-3xl font-semibold text-[var(--travel-ink)]">
                 Даты и цены
               </h2>
@@ -673,22 +883,22 @@ onMounted(() => {
               striped-rows
               class="overflow-hidden rounded-[1.5rem]"
             >
-              <Column header="Dates">
+              <Column header="Даты">
                 <template #body="{ data }">
                   {{ formatDateRange(data.start_date, data.end_date) }}
                 </template>
               </Column>
-              <Column header="Price">
+              <Column header="Цена">
                 <template #body="{ data }">
                   {{ formatPrice(data.price, data.currency) }}
                 </template>
               </Column>
-              <Column field="available_seats" header="Seats" />
-              <Column header="Actions">
+              <Column field="available_seats" header="Места" />
+              <Column header="Действия">
                 <template #body="{ data }">
                   <div class="flex gap-2">
-                    <Button label="Edit" size="small" icon="pi pi-pencil" @click="openDateDialog(data)" />
-                    <Button label="Delete" size="small" severity="danger" outlined icon="pi pi-trash" @click="confirmDeleteDate(data.id)" />
+                    <Button label="Редактировать" size="small" icon="pi pi-pencil" @click="openDateDialog(data)" />
+                    <Button label="Удалить" size="small" severity="danger" outlined icon="pi pi-trash" @click="confirmDeleteDate(data.id)" />
                   </div>
                 </template>
               </Column>
@@ -696,23 +906,23 @@ onMounted(() => {
 
             <form class="grid gap-4 rounded-[1.8rem] bg-white/70 p-5 md:grid-cols-2 xl:grid-cols-6" @submit.prevent="addDate">
               <label class="space-y-2">
-                <span class="text-sm font-medium text-[var(--travel-ink)]">Start</span>
+                <span class="text-sm font-medium text-[var(--travel-ink)]">Начало</span>
                 <InputText v-model="dateCreateForm.start_date" type="date" fluid />
               </label>
               <label class="space-y-2">
-                <span class="text-sm font-medium text-[var(--travel-ink)]">End</span>
+                <span class="text-sm font-medium text-[var(--travel-ink)]">Окончание</span>
                 <InputText v-model="dateCreateForm.end_date" type="date" fluid />
               </label>
               <label class="space-y-2">
-                <span class="text-sm font-medium text-[var(--travel-ink)]">Price</span>
+                <span class="text-sm font-medium text-[var(--travel-ink)]">Цена</span>
                 <InputText v-model="dateCreateForm.price" type="number" min="0" fluid />
               </label>
               <label class="space-y-2">
-                <span class="text-sm font-medium text-[var(--travel-ink)]">Currency</span>
+                <span class="text-sm font-medium text-[var(--travel-ink)]">Валюта</span>
                 <Select v-model="dateCreateForm.currency" :options="currencyOptions" option-label="label" option-value="value" fluid />
               </label>
               <label class="space-y-2">
-                <span class="text-sm font-medium text-[var(--travel-ink)]">Seats</span>
+                <span class="text-sm font-medium text-[var(--travel-ink)]">Места</span>
                 <InputText v-model="dateCreateForm.available_seats" type="number" min="0" fluid />
               </label>
               <div class="flex items-end">
@@ -731,7 +941,7 @@ onMounted(() => {
         <template #content>
           <div class="space-y-5">
             <div>
-              <div class="text-xs uppercase tracking-[0.24em] text-[var(--travel-muted)]">Route points</div>
+              <div class="text-xs uppercase tracking-[0.24em] text-[var(--travel-muted)]">Точки маршрута</div>
               <h2 class="mt-2 text-3xl font-semibold text-[var(--travel-ink)]">
                 Маршрут тура
               </h2>
@@ -745,17 +955,17 @@ onMounted(() => {
               class="overflow-hidden rounded-[1.5rem]"
             >
               <Column field="sort_order" header="#" />
-              <Column field="title" header="Title" />
-              <Column header="Coordinates">
+              <Column field="title" header="Название" />
+              <Column header="Координаты">
                 <template #body="{ data }">
                   {{ data.latitude }}, {{ data.longitude }}
                 </template>
               </Column>
-              <Column header="Actions">
+              <Column header="Действия">
                 <template #body="{ data }">
                   <div class="flex gap-2">
-                    <Button label="Edit" size="small" icon="pi pi-pencil" @click="openRouteDialog(data)" />
-                    <Button label="Delete" size="small" severity="danger" outlined icon="pi pi-trash" @click="confirmDeleteRoutePoint(data.id)" />
+                    <Button label="Редактировать" size="small" icon="pi pi-pencil" @click="openRouteDialog(data)" />
+                    <Button label="Удалить" size="small" severity="danger" outlined icon="pi pi-trash" @click="confirmDeleteRoutePoint(data.id)" />
                   </div>
                 </template>
               </Column>
@@ -763,23 +973,23 @@ onMounted(() => {
 
             <form class="grid gap-4 rounded-[1.8rem] bg-white/70 p-5 xl:grid-cols-[1.1fr_1.2fr_150px_150px_120px_auto]" @submit.prevent="addRoutePoint">
               <label class="space-y-2">
-                <span class="text-sm font-medium text-[var(--travel-ink)]">Title</span>
+                <span class="text-sm font-medium text-[var(--travel-ink)]">Название</span>
                 <InputText v-model="routeCreateForm.title" fluid />
               </label>
               <label class="space-y-2">
-                <span class="text-sm font-medium text-[var(--travel-ink)]">Description</span>
+                <span class="text-sm font-medium text-[var(--travel-ink)]">Описание</span>
                 <InputText v-model="routeCreateForm.description" fluid />
               </label>
               <label class="space-y-2">
-                <span class="text-sm font-medium text-[var(--travel-ink)]">Latitude</span>
+                <span class="text-sm font-medium text-[var(--travel-ink)]">Широта</span>
                 <InputText v-model="routeCreateForm.latitude" type="number" fluid />
               </label>
               <label class="space-y-2">
-                <span class="text-sm font-medium text-[var(--travel-ink)]">Longitude</span>
+                <span class="text-sm font-medium text-[var(--travel-ink)]">Долгота</span>
                 <InputText v-model="routeCreateForm.longitude" type="number" fluid />
               </label>
               <label class="space-y-2">
-                <span class="text-sm font-medium text-[var(--travel-ink)]">Sort</span>
+                <span class="text-sm font-medium text-[var(--travel-ink)]">Порядок</span>
                 <InputText v-model="routeCreateForm.sort_order" type="number" min="0" fluid />
               </label>
               <div class="flex items-end">
@@ -793,51 +1003,28 @@ onMounted(() => {
           </div>
         </template>
       </Card>
-
-      <Card class="glass-panel rounded-[2rem] border-0">
-        <template #content>
-          <div class="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
-            <div>
-              <div class="text-xs uppercase tracking-[0.24em] text-[var(--travel-muted)]">AI description</div>
-              <h2 class="mt-2 text-3xl font-semibold text-[var(--travel-ink)]">
-                Generate description
-              </h2>
-              <p class="mt-2 text-sm leading-6 text-[var(--travel-muted)]">
-                Backend возвращает детерминированное stub-описание на основе title, category и duration_days.
-              </p>
-            </div>
-
-            <Button
-              label="Generate description"
-              icon="pi pi-bolt"
-              :loading="generatingDescription"
-              @click="requestGeneratedDescription"
-            />
-          </div>
-        </template>
-      </Card>
     </div>
 
     <Dialog v-model:visible="dateDialogVisible" modal header="Редактировать дату" :style="{ width: '42rem' }">
       <div class="grid gap-4 md:grid-cols-2">
         <label class="space-y-2">
-          <span class="text-sm font-medium text-[var(--travel-ink)]">Start</span>
+          <span class="text-sm font-medium text-[var(--travel-ink)]">Начало</span>
           <InputText v-model="dateEditForm.start_date" type="date" fluid />
         </label>
         <label class="space-y-2">
-          <span class="text-sm font-medium text-[var(--travel-ink)]">End</span>
+          <span class="text-sm font-medium text-[var(--travel-ink)]">Окончание</span>
           <InputText v-model="dateEditForm.end_date" type="date" fluid />
         </label>
         <label class="space-y-2">
-          <span class="text-sm font-medium text-[var(--travel-ink)]">Price</span>
+          <span class="text-sm font-medium text-[var(--travel-ink)]">Цена</span>
           <InputText v-model="dateEditForm.price" type="number" min="0" fluid />
         </label>
         <label class="space-y-2">
-          <span class="text-sm font-medium text-[var(--travel-ink)]">Currency</span>
+          <span class="text-sm font-medium text-[var(--travel-ink)]">Валюта</span>
           <Select v-model="dateEditForm.currency" :options="currencyOptions" option-label="label" option-value="value" fluid />
         </label>
         <label class="space-y-2 md:col-span-2">
-          <span class="text-sm font-medium text-[var(--travel-ink)]">Seats</span>
+          <span class="text-sm font-medium text-[var(--travel-ink)]">Места</span>
           <InputText v-model="dateEditForm.available_seats" type="number" min="0" fluid />
         </label>
       </div>
@@ -853,23 +1040,23 @@ onMounted(() => {
     <Dialog v-model:visible="routeDialogVisible" modal header="Редактировать точку маршрута" :style="{ width: '44rem' }">
       <div class="grid gap-4 md:grid-cols-2">
         <label class="space-y-2 md:col-span-2">
-          <span class="text-sm font-medium text-[var(--travel-ink)]">Title</span>
+          <span class="text-sm font-medium text-[var(--travel-ink)]">Название</span>
           <InputText v-model="routeEditForm.title" fluid />
         </label>
         <label class="space-y-2 md:col-span-2">
-          <span class="text-sm font-medium text-[var(--travel-ink)]">Description</span>
+          <span class="text-sm font-medium text-[var(--travel-ink)]">Описание</span>
           <Textarea v-model="routeEditForm.description" auto-resize rows="4" fluid />
         </label>
         <label class="space-y-2">
-          <span class="text-sm font-medium text-[var(--travel-ink)]">Latitude</span>
+          <span class="text-sm font-medium text-[var(--travel-ink)]">Широта</span>
           <InputText v-model="routeEditForm.latitude" type="number" fluid />
         </label>
         <label class="space-y-2">
-          <span class="text-sm font-medium text-[var(--travel-ink)]">Longitude</span>
+          <span class="text-sm font-medium text-[var(--travel-ink)]">Долгота</span>
           <InputText v-model="routeEditForm.longitude" type="number" fluid />
         </label>
         <label class="space-y-2 md:col-span-2">
-          <span class="text-sm font-medium text-[var(--travel-ink)]">Sort order</span>
+          <span class="text-sm font-medium text-[var(--travel-ink)]">Порядок</span>
           <InputText v-model="routeEditForm.sort_order" type="number" min="0" fluid />
         </label>
       </div>
@@ -879,18 +1066,6 @@ onMounted(() => {
       <template #footer>
         <Button label="Отмена" severity="secondary" outlined @click="routeDialogVisible = false" />
         <Button label="Сохранить" icon="pi pi-save" :loading="routeSubmitting" @click="saveRouteEdit" />
-      </template>
-    </Dialog>
-
-    <Dialog v-model:visible="generatedDialogVisible" modal header="Сгенерированное описание" :style="{ width: '48rem' }">
-      <div class="space-y-4">
-        <p class="rounded-[1.5rem] bg-[rgba(42,123,116,0.08)] px-5 py-5 whitespace-pre-line text-sm leading-7 text-[var(--travel-ink)]">
-          {{ generatedDescription }}
-        </p>
-      </div>
-      <template #footer>
-        <Button label="Закрыть" severity="secondary" outlined @click="generatedDialogVisible = false" />
-        <Button label="Use this description" icon="pi pi-check" @click="useGeneratedDescription" />
       </template>
     </Dialog>
   </AdminLayout>

@@ -27,4 +27,9 @@ until php artisan migrate --force; do
     sleep 2
 done
 
+if [ ! -d public/storage ] || [ -L public/storage ]; then
+    rm -f public/storage
+    ln -s ../storage/app/public public/storage
+fi
+
 exec php artisan serve --host=0.0.0.0 --port=8000

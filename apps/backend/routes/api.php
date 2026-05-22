@@ -4,7 +4,6 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Admin\AuthController;
 use App\Http\Controllers\Admin\TourController as AdminTourController;
 use App\Http\Controllers\Admin\TourDateController;
-use App\Http\Controllers\Admin\TourGenerationController;
 use App\Http\Controllers\Admin\TourImageController;
 use App\Http\Controllers\Admin\TourRoutePointController;
 use App\Http\Controllers\PublicApi\SemanticSearchController;
@@ -37,7 +36,5 @@ Route::prefix('admin')->group(function () {
         Route::post('/tours/{tour}/route-points', [TourRoutePointController::class, 'store']);
         Route::put('/tour-route-points/{tourRoutePoint}', [TourRoutePointController::class, 'update']);
         Route::delete('/tour-route-points/{tourRoutePoint}', [TourRoutePointController::class, 'destroy']);
-
-        Route::post('/tours/{tour}/generate-description', TourGenerationController::class);
     });
 });

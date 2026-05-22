@@ -26,7 +26,8 @@ class StoreTourRequest extends FormRequest
             'duration_days' => ['required', 'integer', 'min:1'],
             'category' => ['required', Rule::in(TourCategory::values())],
             'is_active' => ['sometimes', 'boolean'],
-            'main_image' => ['required', 'url', 'max:2048'],
+            'main_image' => ['nullable', 'url', 'max:2048'],
+            'main_image_file' => ['sometimes', 'file', 'image', 'max:5120'],
         ];
     }
 }

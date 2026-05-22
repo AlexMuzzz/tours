@@ -100,7 +100,7 @@ describe('ToursCatalogPage', () => {
 
     await wrapper
       .findAll('button')
-      .find((button) => button.text().includes('Применить'))
+      .find((button) => button.text().includes('Показать туры'))
       ?.trigger('click');
     await wrapper.vm.$nextTick();
 
@@ -130,7 +130,7 @@ describe('ToursCatalogPage', () => {
     await wrapper.find('select').setValue('nature');
     await wrapper
       .findAll('button')
-      .find((button) => button.text().includes('Применить'))
+      .find((button) => button.text().includes('Показать туры'))
       ?.trigger('click');
     await flushPromises();
 

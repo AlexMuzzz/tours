@@ -8,6 +8,7 @@ use App\Http\Requests\Admin\UpdateTourRequest;
 use App\Http\Resources\TourListResource;
 use App\Http\Resources\TourResource;
 use App\Models\Tour;
+use App\Services\TourMediaService;
 use App\Services\TourService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -17,6 +18,7 @@ use Symfony\Component\HttpFoundation\Response;
 class TourController extends Controller
 {
     public function __construct(
+        private readonly TourMediaService $tourMediaService,
         private readonly TourService $tourService,
     ) {
     }
@@ -48,7 +50,21 @@ class TourController extends Controller
      */
     public function store(StoreTourRequest $request): JsonResponse
     {
-        $tour = $this->tourService->create($request->validated());
+        $attributes = $request->safe()->except(['main_image_file']);
+        $hasUploadedMainImage = $request->hasFile('main_image_file');
+
+        if ($hasUploadedMainImage) {
+            unset($attributes['main_image']);
+        }
+
+        $tour = $this->tourService->create($attributes);
+
+        if ($hasUploadedMainImage) {
+            $tour = $this->tourService->setMainImage(
+                $tour,
+                $this->tourMediaService->storeMainImage($tour, $request->file('main_image_file'))
+            );
+        }
 
         return TourResource::make($tour->loadMin('dates', 'price'))
             ->response()
@@ -74,7 +90,31 @@ class TourController extends Controller
      */
     public function update(UpdateTourRequest $request, Tour $tour): TourResource
     {
-        $tour = $this->tourService->update($tour, $request->validated());
+        $previousMainImage = $tour->getRawOriginal('main_image');
+        $attributes = $request->safe()->except(['main_image_file', 'remove_main_image']);
+        $hasUploadedMainImage = $request->hasFile('main_image_file');
+        $shouldRemoveMainImage = $request->boolean('remove_main_image') && ! $hasUploadedMainImage;
+
+        if ($hasUploadedMainImage) {
+            unset($attributes['main_image']);
+        }
+
+        if ($shouldRemoveMainImage) {
+            $attributes['main_image'] = null;
+        }
+
+        $tour = $this->tourService->update($tour, $attributes);
+
+        if ($hasUploadedMainImage) {
+            $this->tourMediaService->delete($previousMainImage);
+
+            $tour = $this->tourService->setMainImage(
+                $tour,
+                $this->tourMediaService->storeMainImage($tour, $request->file('main_image_file'))
+            );
+        } elseif (array_key_exists('main_image', $attributes) && $attributes['main_image'] !== $previousMainImage) {
+            $this->tourMediaService->delete($previousMainImage);
+        }
 
         return TourResource::make($tour->loadMin('dates', 'price'));
     }

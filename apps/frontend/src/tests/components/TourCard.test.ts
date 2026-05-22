@@ -23,5 +23,25 @@ describe('TourCard', () => {
     expect(wrapper.text()).toContain('Природа');
     expect(wrapper.text()).toContain('7 дней');
     expect(wrapper.text()).toContain('65');
+    expect(wrapper.get('a').attributes('href')).toBe('/tours/tur-po-altayu');
+    expect(wrapper.text()).not.toContain('Подробнее');
+  });
+
+  it('falls back when the image cannot be loaded', async () => {
+    const wrapper = mount(TourCard, {
+      props: {
+        tour: createTour({
+          title: 'Тур по Байкалу',
+          main_image: 'http://localhost:8000/storage/tours/1/main.jpg',
+        }),
+      },
+      global: {
+        stubs: baseGlobalStubs,
+      },
+    });
+
+    await wrapper.get('img').trigger('error');
+
+    expect(wrapper.text()).toContain('Изображение временно недоступно');
   });
 });

@@ -7,11 +7,17 @@ use App\Http\Requests\Admin\StoreTourImageRequest;
 use App\Http\Resources\TourImageResource;
 use App\Models\Tour;
 use App\Models\TourImage;
+use App\Services\TourMediaService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
 
 class TourImageController extends Controller
 {
+    public function __construct(
+        private readonly TourMediaService $tourMediaService,
+    ) {
+    }
+
     /**
      * Добавить URL изображения к туру.
      *
@@ -20,7 +26,13 @@ class TourImageController extends Controller
      */
     public function store(StoreTourImageRequest $request, Tour $tour): JsonResponse
     {
-        $image = $tour->images()->create($request->validated());
+        $attributes = $request->safe()->except(['image_file']);
+
+        if ($request->hasFile('image_file')) {
+            $attributes['image_url'] = $this->tourMediaService->storeGalleryImage($tour, $request->file('image_file'));
+        }
+
+        $image = $tour->images()->create($attributes);
 
         return TourImageResource::make($image)
             ->response()
@@ -35,6 +47,7 @@ class TourImageController extends Controller
      */
     public function destroy(TourImage $tourImage): Response
     {
+        $this->tourMediaService->delete($tourImage->getRawOriginal('image_url'));
         $tourImage->delete();
 
         return response()->noContent();

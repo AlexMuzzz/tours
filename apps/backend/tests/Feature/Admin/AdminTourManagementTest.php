@@ -8,6 +8,8 @@ use App\Models\TourImage;
 use App\Models\TourRoutePoint;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -61,6 +63,52 @@ class AdminTourManagementTest extends TestCase
         $this->assertDatabaseHas('tour_embeddings', [
             'tour_id' => $tour->id,
         ]);
+    }
+
+    public function test_admin_can_create_tour_without_main_image(): void
+    {
+        Sanctum::actingAs(User::factory()->admin()->create());
+
+        $payload = $this->tourPayload([
+            'title' => 'Photo Optional Tour',
+        ]);
+        unset($payload['main_image']);
+
+        $response = $this->postJson('/api/admin/tours', $payload);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.title', 'Photo Optional Tour')
+            ->assertJsonPath('data.main_image', null);
+
+        $this->assertDatabaseHas('tours', [
+            'title' => 'Photo Optional Tour',
+            'main_image' => null,
+        ]);
+    }
+
+    public function test_admin_can_create_tour_with_uploaded_main_image(): void
+    {
+        Storage::fake('public');
+        Sanctum::actingAs(User::factory()->admin()->create());
+
+        $response = $this->withHeaders(['Accept' => 'application/json'])
+            ->post('/api/admin/tours', [
+                ...$this->tourPayload([
+                    'title' => 'Upload Cover Tour',
+                ]),
+                'main_image_file' => $this->uploadedPng('cover.png'),
+            ]);
+
+        $tour = Tour::query()->where('title', 'Upload Cover Tour')->firstOrFail();
+        $storedPath = $tour->getRawOriginal('main_image');
+
+        $this->assertNotNull($storedPath);
+        Storage::disk('public')->assertExists($storedPath);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.main_image', Storage::disk('public')->url($storedPath));
     }
 
     public function test_admin_can_list_all_tours_including_inactive(): void
@@ -155,6 +203,88 @@ class AdminTourManagementTest extends TestCase
             ->assertJsonPath('data.main_image', 'https://example.com/updated-tour.jpg');
     }
 
+    public function test_admin_can_clear_main_image_on_update(): void
+    {
+        Sanctum::actingAs(User::factory()->admin()->create());
+
+        $tour = Tour::factory()->create([
+            'main_image' => 'https://example.com/existing-tour.jpg',
+        ]);
+
+        $response = $this->putJson("/api/admin/tours/{$tour->id}", [
+            'main_image' => null,
+        ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.main_image', null);
+
+        $this->assertDatabaseHas('tours', [
+            'id' => $tour->id,
+            'main_image' => null,
+        ]);
+    }
+
+    public function test_admin_can_replace_uploaded_main_image_on_update(): void
+    {
+        Storage::fake('public');
+        Sanctum::actingAs(User::factory()->admin()->create());
+
+        $tour = Tour::factory()->create([
+            'main_image' => 'placeholder.jpg',
+        ]);
+
+        $oldPath = "tours/{$tour->id}/main/old-cover.jpg";
+        $tour->update(['main_image' => $oldPath]);
+        Storage::disk('public')->put($oldPath, 'old-cover');
+
+        $response = $this->withHeaders(['Accept' => 'application/json'])
+            ->post("/api/admin/tours/{$tour->id}", [
+                '_method' => 'PUT',
+                'main_image_file' => $this->uploadedPng('fresh-cover.png'),
+            ]);
+
+        $tour->refresh();
+        $storedPath = $tour->getRawOriginal('main_image');
+
+        $this->assertNotSame($oldPath, $storedPath);
+        Storage::disk('public')->assertMissing($oldPath);
+        Storage::disk('public')->assertExists($storedPath);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.main_image', Storage::disk('public')->url($storedPath));
+    }
+
+    public function test_admin_can_remove_uploaded_main_image_on_update(): void
+    {
+        Storage::fake('public');
+        Sanctum::actingAs(User::factory()->admin()->create());
+
+        $tour = Tour::factory()->create([
+            'main_image' => 'placeholder.jpg',
+        ]);
+
+        $oldPath = "tours/{$tour->id}/main/cover-to-remove.jpg";
+        $tour->update(['main_image' => $oldPath]);
+        Storage::disk('public')->put($oldPath, 'cover');
+
+        $response = $this->withHeaders(['Accept' => 'application/json'])
+            ->post("/api/admin/tours/{$tour->id}", [
+                '_method' => 'PUT',
+                'remove_main_image' => '1',
+            ]);
+
+        $tour->refresh();
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.main_image', null);
+
+        $this->assertNull($tour->getRawOriginal('main_image'));
+        Storage::disk('public')->assertMissing($oldPath);
+    }
+
     public function test_invalid_tour_update_payload_returns_validation_error(): void
     {
         Sanctum::actingAs(User::factory()->admin()->create());
@@ -187,6 +317,41 @@ class AdminTourManagementTest extends TestCase
         $this->assertDatabaseMissing('tours', [
             'id' => $tour->id,
         ]);
+    }
+
+    public function test_deleting_tour_removes_uploaded_images_from_storage(): void
+    {
+        Storage::fake('public');
+        Sanctum::actingAs(User::factory()->admin()->create());
+
+        $tour = Tour::factory()->create([
+            'main_image' => 'placeholder.jpg',
+        ]);
+
+        $mainImagePath = "tours/{$tour->id}/main/cover.jpg";
+        $firstGalleryPath = "tours/{$tour->id}/gallery/one.jpg";
+        $secondGalleryPath = "tours/{$tour->id}/gallery/two.jpg";
+
+        $tour->update(['main_image' => $mainImagePath]);
+        TourImage::factory()->create([
+            'tour_id' => $tour->id,
+            'image_url' => $firstGalleryPath,
+        ]);
+        TourImage::factory()->create([
+            'tour_id' => $tour->id,
+            'image_url' => $secondGalleryPath,
+        ]);
+
+        Storage::disk('public')->put($mainImagePath, 'cover');
+        Storage::disk('public')->put($firstGalleryPath, 'one');
+        Storage::disk('public')->put($secondGalleryPath, 'two');
+
+        $this->deleteJson("/api/admin/tours/{$tour->id}")
+            ->assertNoContent();
+
+        Storage::disk('public')->assertMissing($mainImagePath);
+        Storage::disk('public')->assertMissing($firstGalleryPath);
+        Storage::disk('public')->assertMissing($secondGalleryPath);
     }
 
     public function test_deleted_tour_disappears_from_admin_and_public_endpoints(): void
@@ -300,42 +465,6 @@ class AdminTourManagementTest extends TestCase
             ]);
     }
 
-    public function test_generate_description_requires_authentication(): void
-    {
-        $tour = Tour::factory()->create();
-
-        $this->postJson("/api/admin/tours/{$tour->id}/generate-description")
-            ->assertUnauthorized();
-    }
-
-    public function test_non_admin_user_cannot_generate_description(): void
-    {
-        Sanctum::actingAs(User::factory()->create());
-        $tour = Tour::factory()->create();
-
-        $this->postJson("/api/admin/tours/{$tour->id}/generate-description")
-            ->assertForbidden();
-    }
-
-    public function test_admin_can_generate_description_stub(): void
-    {
-        Sanctum::actingAs(User::factory()->admin()->create());
-        $tour = Tour::factory()->create([
-            'title' => 'Kamchatka Explorer',
-            'category' => 'adventure',
-            'duration_days' => 8,
-        ]);
-
-        $response = $this->postJson("/api/admin/tours/{$tour->id}/generate-description");
-
-        $response
-            ->assertOk()
-            ->assertJsonPath(
-                'description',
-                '«Kamchatka Explorer» — это приключенческий тур на 8 дней с насыщенным, но комфортным ритмом. Маршрут собран так, чтобы показать ключевые впечатления региона, оставить время на спокойные прогулки и дать путешественнику цельную историю поездки без перегруза переездами.'
-            );
-    }
-
     /**
      * @param  array<string, mixed>  $overrides
      * @return array<string, mixed>
@@ -351,5 +480,13 @@ class AdminTourManagementTest extends TestCase
             'is_active' => true,
             'main_image' => 'https://example.com/tour.jpg',
         ], $overrides);
+    }
+
+    private function uploadedPng(string $name): UploadedFile
+    {
+        return UploadedFile::fake()->createWithContent(
+            $name,
+            base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9s6nxsQAAAAASUVORK5CYII=')
+        );
     }
 }

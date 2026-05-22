@@ -27,6 +27,7 @@ export class ApiClientError extends Error implements ApiError {
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const url = new URL(path.startsWith('/') ? path.slice(1) : path, `${API_BASE_URL}/`);
   const query = options.query ? buildQueryString(options.query) : '';
+  const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
 
   if (query) {
     url.search = query;
@@ -36,7 +37,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     Accept: 'application/json',
   });
 
-  if (options.body !== undefined) {
+  if (options.body !== undefined && ! isFormData) {
     headers.set('Content-Type', 'application/json');
   }
 
@@ -47,7 +48,9 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   const response = await fetch(url.toString(), {
     method: options.method ?? 'GET',
     headers,
-    body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+    body: options.body === undefined
+      ? undefined
+      : (isFormData ? options.body as FormData : JSON.stringify(options.body)),
   });
 
   const contentType = response.headers.get('content-type') ?? '';

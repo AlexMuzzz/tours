@@ -18,8 +18,8 @@ const isBooting = ref(true);
 const currentPath = computed(() => (typeof window === 'undefined' ? '' : window.location.pathname));
 
 const navItems = [
-  { label: 'Tours', href: '/admin/tours' },
-  { label: 'Create tour', href: '/admin/tours/create' },
+  { label: 'Туры', href: '/admin/tours' },
+  { label: 'Создать тур', href: '/admin/tours/create' },
 ];
 
 function isActive(href: string) {
@@ -116,7 +116,7 @@ onMounted(() => {
           </div>
 
           <Button
-            label="Logout"
+            label="Выйти"
             icon="pi pi-sign-out"
             severity="secondary"
             class="mt-5 w-full"

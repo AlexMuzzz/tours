@@ -28,7 +28,9 @@ class UpdateTourRequest extends FormRequest
             'duration_days' => ['sometimes', 'integer', 'min:1'],
             'category' => ['sometimes', Rule::in(TourCategory::values())],
             'is_active' => ['sometimes', 'boolean'],
-            'main_image' => ['sometimes', 'url', 'max:2048'],
+            'main_image' => ['sometimes', 'nullable', 'url', 'max:2048'],
+            'main_image_file' => ['sometimes', 'file', 'image', 'max:5120'],
+            'remove_main_image' => ['sometimes', 'boolean'],
         ];
     }
 }

@@ -63,7 +63,7 @@ onMounted(async () => {
             </h1>
             <p class="text-base leading-8 text-[var(--travel-muted)]">
               Логин использует существующий Laravel Sanctum Bearer token flow. После входа можно
-              редактировать туры, даты, изображения, route points и генерировать stub-описание.
+              редактировать туры, даты, изображения и route points.
             </p>
           </div>
           <div class="grid gap-4 md:grid-cols-3">

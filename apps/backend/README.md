@@ -174,7 +174,6 @@ Admin related resources:
 - `POST /api/admin/tours/{id}/route-points`
 - `PUT /api/admin/tour-route-points/{id}`
 - `DELETE /api/admin/tour-route-points/{id}`
-- `POST /api/admin/tours/{id}/generate-description`
 
 ## Semantic search
 
@@ -195,13 +194,11 @@ docker compose exec -T backend php artisan embeddings:rebuild --chunk=25
 ## MVP stubs
 
 - `EmbeddingService` falls back to a deterministic local embedding strategy only in local/testing environments where fallback is explicitly enabled
-- `TourGenerationService` returns a deterministic Russian stub description
 - Images are stored as plain URL strings
 - Real file uploads are intentionally out of scope for this MVP
 
 ## TODO
 
 - Add pgvector or vector similarity search
-- Replace fake `TourGenerationService` with a real LLM provider
 - Add visual admin panel
 - For production SPA flows, switch to cookie-based Sanctum authentication
