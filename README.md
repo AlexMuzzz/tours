@@ -105,7 +105,9 @@ npm run dev
 После запуска:
 
 - frontend: [http://localhost:3000](http://localhost:3000)
-- backend API: [http://localhost:8000/api](http://localhost:8000/api)
+- backend API base URL: `http://localhost:8000/api`
+- пример public endpoint: [http://localhost:8000/api/tours](http://localhost:8000/api/tours)
+- Swagger UI: [http://localhost:8000/docs/api](http://localhost:8000/docs/api)
 
 ## Проверка качества
 
@@ -191,7 +193,7 @@ make frontend-build
 
 При локально запущенном backend:
 
-- UI: [http://localhost:8000/docs/api](http://localhost:8000/docs/api)
+- Swagger UI: [http://localhost:8000/docs/api](http://localhost:8000/docs/api)
 - OpenAPI JSON: [http://localhost:8000/docs/api.json](http://localhost:8000/docs/api.json)
 
 Чтобы протестировать админские методы в документации:
