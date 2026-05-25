@@ -1,6 +1,53 @@
 # Tour Catalog AI
 
+<p align="center">
+  <img src="./docs/screenshots/showcase-hero.png" alt="Tour Catalog AI showcase" width="100%" />
+</p>
+
+<p align="center">
+  <strong>Публичный каталог туров, AI-поиск по смыслу и admin workspace в одном живом MVP-репозитории.</strong>
+</p>
+
+<p align="center">
+  <code>Vue 3</code>
+  <code>Vike</code>
+  <code>Laravel 11</code>
+  <code>FastAPI</code>
+  <code>PostgreSQL</code>
+  <code>Docker Compose</code>
+</p>
+
 Полнофункциональный каталог туров с AI-функциями в формате монорепозитория. Проект включает публичный каталог, админ-панель, семантический поиск, отдельный embedding-service и набор автоматических проверок для backend и frontend.
+
+## Как выглядит приложение
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="./docs/screenshots/catalog-semantic-search.png" alt="Semantic search in tours catalog" width="100%" />
+      <br />
+      <strong>Semantic search в каталоге</strong>
+      <br />
+      По запросу вроде <code>отдых у моря</code> каталог показывает релевантную подборку и сохраняет быстрый фильтровый UX.
+    </td>
+    <td width="50%" valign="top">
+      <img src="./docs/screenshots/tour-detail-gastronomy.png" alt="Tour detail page" width="100%" />
+      <br />
+      <strong>Детальная страница тура</strong>
+      <br />
+      Hero-изображение, галерея, описание, даты и цена собраны в один длинный продуктовый экран.
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2" valign="top">
+      <img src="./docs/screenshots/admin-tours.png" alt="Admin workspace with tours list" width="100%" />
+      <br />
+      <strong>Admin workspace</strong>
+      <br />
+      Отдельный интерфейс для управления турами, статусами публикации и переходом к полному CRUD-редактированию.
+    </td>
+  </tr>
+</table>
 
 ## Возможности
 
@@ -20,7 +67,7 @@
 - Vue 3 + Vike frontend в `apps/frontend`
 - FastAPI embedding-service в `apps/embedding-service`
 - PostgreSQL-ориентированная модель данных
-- Демо-данные: 17 туров с полными русскоязычными описаниями и 3 admin-аккаунта
+- Демо-данные: 18 туров с полными русскоязычными описаниями и 3 admin-аккаунта
 - Feature-тесты для backend и smoke / component tests для frontend
 
 ## Структура
@@ -45,11 +92,20 @@ git clone git@github.com:AlexMuzzz/tours.git
 cd tours
 cp apps/backend/.env.example apps/backend/.env
 cp apps/backend/.env.testing.example apps/backend/.env.testing
+cp apps/frontend/.env.example apps/frontend/.env
 make backend-install
 make backend-key
 make backend-fresh
 make backend-serve
+cd apps/frontend
+npm install
+npm run dev
 ```
+
+После запуска:
+
+- frontend: [http://localhost:3000](http://localhost:3000)
+- backend API: [http://localhost:8000/api](http://localhost:8000/api)
 
 ## Проверка качества
 
